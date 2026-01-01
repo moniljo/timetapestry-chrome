@@ -72,10 +72,19 @@ async function checkAndResetDaily(data) {
   if (data.today.date !== today) {
     // Save yesterday's data to history
     if (data.today.totalMinutes > 0) {
-      data.history.unshift({
-        date: data.today.date,
-        totalMinutes: data.today.totalMinutes
-      });
+      // Check if an entry for this date already exists
+      const existingIndex = data.history.findIndex(h => h.date === data.today.date);
+
+      if (existingIndex >= 0) {
+        // Update existing entry
+        data.history[existingIndex].totalMinutes += data.today.totalMinutes;
+      } else {
+        // Add new entry at the beginning
+        data.history.unshift({
+          date: data.today.date,
+          totalMinutes: data.today.totalMinutes
+        });
+      }
 
       // Keep only last 30 days
       if (data.history.length > 30) {

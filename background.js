@@ -231,10 +231,19 @@ async function resetDailyCounter(data) {
     const storageData = await chrome.storage.local.get(['history']);
     let history = storageData.history || [];
 
-    history.unshift({
-      date: yesterday,
-      totalMinutes: data.today.totalMinutes
-    });
+    // Check if an entry for this date already exists
+    const existingIndex = history.findIndex(h => h.date === yesterday);
+
+    if (existingIndex >= 0) {
+      // Update existing entry
+      history[existingIndex].totalMinutes += data.today.totalMinutes;
+    } else {
+      // Add new entry at the beginning
+      history.unshift({
+        date: yesterday,
+        totalMinutes: data.today.totalMinutes
+      });
+    }
 
     // Keep only last 30 days
     if (history.length > 30) {
