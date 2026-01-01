@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(convert:*)",
+      "Bash(tree:*)",
+      "Bash(icons/icon128.png)",
+      "Bash(icons/icon48.png)",
+      "Bash(icons/icon16.png)",
+      "Bash(file:*)",
+      "Bash(icons/temp128.png)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(__NEW_LINE__ file stopwatch-uxwing-128.png)",
+      "Bash(identify:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
+    ]
+  }
+}

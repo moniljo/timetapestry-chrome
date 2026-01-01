@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>TimeTapestry Debug</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .section {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    h2 { margin-top: 0; }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      background: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover { background: #1976D2; }
+    pre {
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 TimeTapestry Debug Console</h1>
+
+  <div class="section">
+    <h2>Storage Contents</h2>
+    <button onclick="loadStorage()">Load Storage</button>
+    <pre id="storageOutput">Click button to load...</pre>
+  </div>
+
+  <div class="section">
+    <h2>Add Test Time</h2>
+    <button onclick="addTestTime()">Add 65 minutes to today</button>
+    <button onclick="addHistory()">Add test history data</button>
+    <button onclick="simulateDayRollover()">Simulate day rollover</button>
+    <pre id="timeOutput">Click buttons to add test data...</pre>
+  </div>
+
+  <div class="section">
+    <h2>Reset All Data</h2>
+    <button onclick="resetAll()">Clear everything</button>
+    <pre id="resetOutput">Click to reset...</pre>
+  </div>
+
+  <script>
+    async function loadStorage() {
+      const data = await chrome.storage.local.get(null);
+      document.getElementById('storageOutput').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function addTestTime() {
+      const data = await chrome.storage.local.get(['today']);
+
+      if (!data.today) {
+        await chrome.storage.local.set({
+          today: {
+            date: new Date().toISOString().split('T')[0],
+            totalMinutes: 0,
+            sites: {},
+            lastNotificationHour: 0
+          }
+        });
+      }
+
+      const updated = await chrome.storage.local.get(['today']);
+      updated.today.totalMinutes += 65;
+      updated.today.sites['test.com'] = 65;
+
+      await chrome.storage.local.set({ today: updated.today });
+      document.getElementById('timeOutput').textContent = 'Added 65 minutes! Check the popup.';
+      loadStorage();
+    }
+
+    async function addHistory() {
+      const history = [];
+      const today = new Date();
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        history.push({
+          date: date.toISOString().split('T')[0],
+          totalMinutes: Math.floor(Math.random() * 180) + 30 // Random 30-210 minutes
+        });
+      }
+
+      await chrome.storage.local.set({ history });
+      document.getElementById('timeOutput').textContent = 'Added 7 days of test history! Check the chart.';
+      loadStorage();
+    }
+
+    async function simulateDayRollover() {
+      // Get current data
+      const data = await chrome.storage.local.get(['today', 'history']);
+
+      // Set today's date to yesterday
+      if (data.today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        data.today.date = yesterday.toISOString().split('T')[0];
+        data.today.totalMinutes = 120; // Add 2 hours
+
+        await chrome.storage.local.set({ today: data.today });
+
+        // Now trigger a reset by initializing with today's date
+        const today = new Date().toISOString().split('T')[0];
+        let history = data.history || [];
+
+        // Add yesterday to history
+        history.unshift({
+          date: data.today.date,
+          totalMinutes: 120
+        });
+
+        // Keep only last 30 days
+        if (history.length > 30) {
+          history = history.slice(0, 30);
+        }
+
+        // Reset today
+        await chrome.storage.local.set({
+          today: {
+            date: today,
+            totalMinutes: 0,
+            sites: {},
+            lastNotificationHour: 0
+          },
+          history: history
+        });
+
+        document.getElementById('timeOutput').textContent = 'Simulated day rollover! Added 120 minutes to history. Check the popup chart.';
+        loadStorage();
+      }
+    }
+
+    async function resetAll() {
+      await chrome.storage.local.clear();
+      document.getElementById('resetOutput').textContent = 'All data cleared! Reload the extension.';
+      loadStorage();
+    }
+
+    // Load storage on page load
+    loadStorage();
+  </script>
+</body>
+</html>

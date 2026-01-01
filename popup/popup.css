@@ -1,0 +1,151 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  width: 400px;
+  background: #f5f5f5;
+}
+
+.container {
+  padding: 16px;
+}
+
+header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 12px;
+}
+
+h1 {
+  font-size: 20px;
+  color: #333;
+}
+
+h2 {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+section {
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.today-summary {
+  text-align: center;
+}
+
+.total-time {
+  font-size: 36px;
+  font-weight: 600;
+  color: #2196F3;
+}
+
+.tracked-sites .add-site {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#newSiteInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#newSiteInput:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+#addSiteBtn {
+  padding: 8px 16px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#addSiteBtn:hover {
+  background: #1976D2;
+}
+
+.site-list {
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.site-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.site-item:last-child {
+  border-bottom: none;
+}
+
+.site-info {
+  flex: 1;
+}
+
+.site-name {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.site-time {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.remove-btn {
+  padding: 4px 8px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-btn:hover {
+  background: #d32f2f;
+}
+
+.chart-container {
+  height: 150px;
+  position: relative;
+}
+
+#historyChart {
+  width: 100%;
+  height: 100%;
+}
+
+.empty-state {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  padding: 20px;
+}

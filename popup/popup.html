@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>TimeTapestry</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⏱️ TimeTapestry</h1>
+    </header>
+
+    <section class="today-summary">
+      <h2>Today</h2>
+      <div class="total-time" id="totalTime">0m</div>
+    </section>
+
+    <section class="tracked-sites">
+      <h2>Tracked Websites</h2>
+      <div class="add-site">
+        <input
+          type="text"
+          id="newSiteInput"
+          placeholder="Enter website (e.g., youtube.com)"
+          autocomplete="off"
+        >
+        <button id="addSiteBtn">Add</button>
+      </div>
+      <ul class="site-list" id="siteList">
+        <!-- Sites will be rendered here -->
+      </ul>
+    </section>
+
+    <section class="history">
+      <h2>30-Day History</h2>
+      <div class="chart-container">
+        <canvas id="historyChart"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
