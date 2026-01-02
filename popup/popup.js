@@ -111,7 +111,15 @@ async function checkAndResetDaily(data) {
 function renderUI(data) {
   renderTotalTime(data.today);
   renderSiteList(data);
-  renderHistoryChart(data.history);
+  // Include today's data in the chart if there's time tracked
+  const chartData = [...data.history];
+  if (data.today.totalMinutes > 0) {
+    chartData.unshift({
+      date: data.today.date,
+      totalMinutes: data.today.totalMinutes
+    });
+  }
+  renderHistoryChart(chartData);
 }
 
 // Render total time display
