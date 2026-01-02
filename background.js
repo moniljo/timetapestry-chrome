@@ -154,12 +154,14 @@ async function flushAccumulatedTime() {
 
 // Update time tracked in storage
 async function updateTimeTracked(hostname, minutesToAdd) {
-  const data = await chrome.storage.local.get(['today']);
+  let data = await chrome.storage.local.get(['today']);
 
   // Check if we need to reset daily counter
   const today = getDateString(new Date());
   if (data.today.date !== today) {
     await resetDailyCounter(data);
+    // Re-fetch data after reset to get the new date
+    data = await chrome.storage.local.get(['today']);
   }
 
   // Update time for this site

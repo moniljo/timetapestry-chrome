@@ -272,9 +272,10 @@ function renderHistoryChart(history) {
     ctx.textAlign = 'center';
 
     // Format date as MM/DD
-    const dateObj = new Date(day.date);
-    const month = dateObj.getMonth() + 1;
-    const date = dateObj.getDate();
+    // Parse YYYY-MM-DD directly to avoid timezone issues
+    const dateParts = day.date.split('-');
+    const month = parseInt(dateParts[1], 10);
+    const date = parseInt(dateParts[2], 10);
     const dateText = `${month}/${date}`;
 
     ctx.fillText(dateText, x + barWidth / 2, height - 5);
