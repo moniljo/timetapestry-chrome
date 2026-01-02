@@ -64,13 +64,21 @@
       document.getElementById('storageOutput').textContent = JSON.stringify(data, null, 2);
     }
 
+    // Helper function to get local date string
+    function getLocalDateString(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     async function addTestTime() {
       const data = await chrome.storage.local.get(['today']);
 
       if (!data.today) {
         await chrome.storage.local.set({
           today: {
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDateString(new Date()),
             totalMinutes: 0,
             sites: {},
             lastNotificationHour: 0
@@ -95,7 +103,7 @@
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         history.push({
-          date: date.toISOString().split('T')[0],
+          date: getLocalDateString(date),
           totalMinutes: Math.floor(Math.random() * 180) + 30 // Random 30-210 minutes
         });
       }
@@ -113,13 +121,13 @@
       if (data.today) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        data.today.date = yesterday.toISOString().split('T')[0];
+        data.today.date = getLocalDateString(yesterday);
         data.today.totalMinutes = 120; // Add 2 hours
 
         await chrome.storage.local.set({ today: data.today });
 
         // Now trigger a reset by initializing with today's date
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString(new Date());
         let history = data.history || [];
 
         // Add yesterday to history
