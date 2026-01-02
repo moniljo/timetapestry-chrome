@@ -5,10 +5,7 @@ let currentSessionStart = Date.now();
 let lastActiveTime = Date.now();
 let lastTrackedUrl = null;
 let accumulatedSeconds = 0;
-
-// Track video playback state by tab ID
-// Map: tabId -> boolean (is video playing)
-let videoPlayingState = new Map();
+let lastSaveTime = Date.now();
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
@@ -37,6 +34,7 @@ async function initializeData() {
       today: {
         date: getDateString(new Date()),
         totalMinutes: 0,
+        totalSeconds: 0,
         sites: {},
         lastNotificationHour: 0
       }
@@ -59,11 +57,6 @@ async function startTracking() {
   // Listen for tab changes
   chrome.tabs.onActivated.addListener(handleTabChange);
   chrome.windows.onFocusChanged.addListener(handleWindowFocus);
-
-  // Clean up video state when tabs are removed
-  chrome.tabs.onRemoved.addListener((tabId) => {
-    videoPlayingState.delete(tabId);
-  });
 }
 
 // Handle tab activation changes
@@ -118,30 +111,18 @@ async function trackActiveTab() {
     const idleState = await chrome.idle.queryState(60); // 60 seconds threshold
     const isIdle = idleState === 'idle' || idleState === 'locked';
 
-    // For YouTube, check if video is actually playing
+    // Track time if user is not idle and site is tracked
+    // Note: Previously had YouTube-specific video detection, but content scripts
+    // can be blocked by ad blockers like uBlock Origin, so we now track all sites
+    // the same way - based on tab being active and user not being idle
     let shouldTrack = !isIdle;
-    if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com')) {
-      const isVideoPlaying = videoPlayingState.get(tab.id);
-      // Only track if video is explicitly playing (true).
-      // If undefined/null (content script hasn't sent message yet), don't track
-      shouldTrack = !isIdle && isVideoPlaying === true;
 
-      console.log(`[TimeTapestry Background] YouTube check:`, {
-        tabId: tab.id,
-        hostname,
-        idle: isIdle,
-        videoPlaying: isVideoPlaying,
-        shouldTrack,
-        allVideoStates: Array.from(videoPlayingState.entries())
-      });
-    } else {
-      console.log(`[TimeTapestry Background] Tracking check:`, {
-        tabId: tab.id,
-        hostname,
-        idle: isIdle,
-        shouldTrack
-      });
-    }
+    console.log(`[TimeTapestry Background] Tracking check:`, {
+      tabId: tab.id,
+      hostname,
+      idle: isIdle,
+      shouldTrack
+    });
 
     if (!shouldTrack) {
       await flushAccumulatedTime();
@@ -153,16 +134,24 @@ async function trackActiveTab() {
     if (lastTrackedUrl && lastTrackedUrl !== hostname) {
       await flushAccumulatedTime();
       currentSessionStart = Date.now();
+      lastSaveTime = Date.now();
     }
 
     lastTrackedUrl = hostname;
     lastActiveTime = Date.now(); // Update last active time
+    accumulatedSeconds++;
 
-    // Update badge with saved time + current session time (real-time)
+    // Save to storage every 10 seconds for real-time tracking
+    const timeSinceLastSave = Date.now() - lastSaveTime;
+    if (timeSinceLastSave >= 10000 && accumulatedSeconds > 0) {
+      await saveAccumulatedTime();
+    }
+
+    // Update badge with saved time + current accumulated seconds (real-time)
     const data2 = await chrome.storage.local.get(['today']);
-    const savedMinutes = data2.today?.totalMinutes || 0;
-    const currentSessionSeconds = Math.floor((lastActiveTime - currentSessionStart) / 1000);
-    const totalMinutes = savedMinutes + Math.floor(currentSessionSeconds / 60);
+    const savedSeconds = (data2.today?.totalSeconds || 0);
+    const totalSeconds = savedSeconds + accumulatedSeconds;
+    const totalMinutes = Math.floor(totalSeconds / 60);
 
     updateBadge(totalMinutes);
 
@@ -174,26 +163,31 @@ async function trackActiveTab() {
   }
 }
 
-// Flush accumulated time to storage
+// Save accumulated seconds to storage
+async function saveAccumulatedTime() {
+  if (!lastTrackedUrl || accumulatedSeconds <= 0) return;
+
+  const secondsToAdd = accumulatedSeconds;
+  accumulatedSeconds = 0;
+  lastSaveTime = Date.now();
+
+  await updateTimeTracked(lastTrackedUrl, secondsToAdd);
+}
+
+// Flush accumulated time to storage (called when switching sites/tabs)
 async function flushAccumulatedTime() {
   if (!lastTrackedUrl) return;
 
-  // Calculate actual active time (time since last active moment)
-  const timeSinceLastActive = Math.floor((lastActiveTime - currentSessionStart) / 1000);
-
-  if (timeSinceLastActive < 60) {
-    currentSessionStart = Date.now();
-    return;
+  if (accumulatedSeconds > 0) {
+    await saveAccumulatedTime();
   }
 
-  const minutesToAdd = Math.floor(timeSinceLastActive / 60);
-  await updateTimeTracked(lastTrackedUrl, minutesToAdd);
-
   currentSessionStart = Date.now();
+  lastSaveTime = Date.now();
 }
 
-// Update time tracked in storage
-async function updateTimeTracked(hostname, minutesToAdd) {
+// Update time tracked in storage (now works with seconds for precision)
+async function updateTimeTracked(hostname, secondsToAdd) {
   let data = await chrome.storage.local.get(['today']);
 
   // Check if we need to reset daily counter
@@ -204,12 +198,19 @@ async function updateTimeTracked(hostname, minutesToAdd) {
     data = await chrome.storage.local.get(['today']);
   }
 
-  // Update time for this site
-  const currentSiteTime = data.today.sites[hostname] || 0;
-  data.today.sites[hostname] = currentSiteTime + minutesToAdd;
+  // Initialize totalSeconds if not present (migration from old format)
+  if (typeof data.today.totalSeconds === 'undefined') {
+    data.today.totalSeconds = (data.today.totalMinutes || 0) * 60;
+  }
 
-  // Update total time
-  data.today.totalMinutes += minutesToAdd;
+  // Update time for this site (store in seconds)
+  const currentSiteSeconds = data.today.sites[hostname] || 0;
+  data.today.sites[hostname] = currentSiteSeconds + secondsToAdd;
+
+  // Update total time in seconds
+  data.today.totalSeconds += secondsToAdd;
+  // Keep totalMinutes in sync for backward compatibility
+  data.today.totalMinutes = Math.floor(data.today.totalSeconds / 60);
 
   // Check if we need to send notification (every hour)
   const newTotalHours = Math.floor(data.today.totalMinutes / 60);
@@ -301,6 +302,7 @@ async function resetDailyCounter(data) {
     today: {
       date: today,
       totalMinutes: 0,
+      totalSeconds: 0,
       sites: {},
       lastNotificationHour: 0
     }
@@ -331,20 +333,10 @@ function getDateString(date) {
   return `${year}-${month}-${day}`;
 }
 
-// Listen for messages from popup and content scripts
+// Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('[TimeTapestry Background] Received message:', request.type || request.action, 'from:', sender.tab ? `tab ${sender.tab.id}` : 'popup');
-
   if (request.action === 'updateBadge') {
     updateBadgeFromStorage();
-    sendResponse({ success: true });
-  } else if (request.type === 'videoStateChange' && sender.tab) {
-    // Update video playing state for this tab
-    const tabId = sender.tab.id;
-    const oldState = videoPlayingState.get(tabId);
-    videoPlayingState.set(tabId, request.isPlaying);
-    console.log(`[TimeTapestry Background] Video state changed for tab ${tabId}: ${oldState} -> ${request.isPlaying}`);
-    console.log(`[TimeTapestry Background] Current videoPlayingState:`, Array.from(videoPlayingState.entries()));
     sendResponse({ success: true });
   }
   return true;

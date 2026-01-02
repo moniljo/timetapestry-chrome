@@ -16,6 +16,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadAndRenderData();
     }
   });
+
+  // Also refresh every 2 seconds to show real-time updates
+  setInterval(() => {
+    loadAndRenderData();
+  }, 2000);
 });
 
 // Load data from storage and render UI
@@ -58,6 +63,7 @@ async function initializeData() {
     today: {
       date: getDateString(new Date()),
       totalMinutes: 0,
+      totalSeconds: 0,
       sites: {},
       lastNotificationHour: 0
     },
@@ -116,6 +122,7 @@ async function checkAndResetDaily(data) {
     data.today = {
       date: today,
       totalMinutes: 0,
+      totalSeconds: 0,
       sites: {},
       lastNotificationHour: 0
     };
@@ -145,7 +152,9 @@ function renderUI(data) {
 // Render total time display
 function renderTotalTime(today) {
   const totalTimeEl = document.getElementById('totalTime');
-  const minutes = today.totalMinutes || 0;
+  // Use totalSeconds if available, fall back to totalMinutes for backward compatibility
+  const totalSeconds = today.totalSeconds || (today.totalMinutes || 0) * 60;
+  const minutes = Math.floor(totalSeconds / 60);
 
   if (minutes < 60) {
     totalTimeEl.textContent = `${minutes}m`;
@@ -166,8 +175,9 @@ function renderSiteList(data) {
   }
 
   siteList.innerHTML = data.trackedWebsites.map(site => {
-    const siteTime = data.today?.sites?.[site] || 0;
-    const timeText = siteTime > 0 ? formatTime(siteTime) : 'No time today';
+    const siteSeconds = data.today?.sites?.[site] || 0;
+    const siteMinutes = Math.floor(siteSeconds / 60);
+    const timeText = siteSeconds > 0 ? formatTime(siteMinutes) : 'No time today';
 
     return `
       <li class="site-item">
