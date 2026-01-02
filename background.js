@@ -108,6 +108,12 @@ async function trackActiveTab() {
       return hostname === site || hostname.endsWith('.' + site) || site.endsWith(hostname);
     });
 
+    if (!isTracked) {
+      await flushAccumulatedTime();
+      lastTrackedUrl = null;
+      return;
+    }
+
     // Check if user is idle
     const idleState = await chrome.idle.queryState(60); // 60 seconds threshold
     const isIdle = idleState === 'idle' || idleState === 'locked';
@@ -116,12 +122,28 @@ async function trackActiveTab() {
     let shouldTrack = !isIdle;
     if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com')) {
       const isVideoPlaying = videoPlayingState.get(tab.id);
-      // Only track if video is playing (true). If undefined/unknown, wait for content script
-      shouldTrack = !isIdle && (isVideoPlaying === true);
-      console.log(`YouTube check - tabId: ${tab.id}, idle: ${isIdle}, video playing: ${isVideoPlaying}, should track: ${shouldTrack}`);
+      // Only track if video is explicitly playing (true).
+      // If undefined/null (content script hasn't sent message yet), don't track
+      shouldTrack = !isIdle && isVideoPlaying === true;
+
+      console.log(`[TimeTapestry Background] YouTube check:`, {
+        tabId: tab.id,
+        hostname,
+        idle: isIdle,
+        videoPlaying: isVideoPlaying,
+        shouldTrack,
+        allVideoStates: Array.from(videoPlayingState.entries())
+      });
+    } else {
+      console.log(`[TimeTapestry Background] Tracking check:`, {
+        tabId: tab.id,
+        hostname,
+        idle: isIdle,
+        shouldTrack
+      });
     }
 
-    if (!isTracked || !shouldTrack) {
+    if (!shouldTrack) {
       await flushAccumulatedTime();
       lastTrackedUrl = null;
       return;
@@ -145,7 +167,8 @@ async function trackActiveTab() {
     updateBadge(totalMinutes);
 
   } catch (error) {
-    // Ignore errors for protected pages
+    // Log error for debugging
+    console.error('[TimeTapestry Background] Error in trackActiveTab:', error);
     await flushAccumulatedTime();
     lastTrackedUrl = null;
   }
@@ -310,14 +333,18 @@ function getDateString(date) {
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('[TimeTapestry Background] Received message:', request.type || request.action, 'from:', sender.tab ? `tab ${sender.tab.id}` : 'popup');
+
   if (request.action === 'updateBadge') {
     updateBadgeFromStorage();
     sendResponse({ success: true });
   } else if (request.type === 'videoStateChange' && sender.tab) {
     // Update video playing state for this tab
     const tabId = sender.tab.id;
+    const oldState = videoPlayingState.get(tabId);
     videoPlayingState.set(tabId, request.isPlaying);
-    console.log(`Video state changed for tab ${tabId}: ${request.isPlaying ? 'playing' : 'paused'}`);
+    console.log(`[TimeTapestry Background] Video state changed for tab ${tabId}: ${oldState} -> ${request.isPlaying}`);
+    console.log(`[TimeTapestry Background] Current videoPlayingState:`, Array.from(videoPlayingState.entries()));
     sendResponse({ success: true });
   }
   return true;
