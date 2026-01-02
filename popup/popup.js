@@ -69,8 +69,28 @@ async function initializeData() {
 // Check if we need to reset daily counter
 async function checkAndResetDaily(data) {
   const today = getDateString(new Date());
+
+  // If stored date doesn't match today's local date, we need to handle it
   if (data.today.date !== today) {
-    // Save yesterday's data to history
+    // Check if the stored date is actually in the future (UTC date issue)
+    const storedDate = new Date(data.today.date);
+    const localToday = new Date(today);
+
+    // If stored date is in the future or more than 1 day in the past, it's a timezone issue
+    if (storedDate > localToday || (localToday - storedDate) > 86400000) {
+      // Timezone mismatch: preserve the minutes but reset to today's date
+      console.log('Date mismatch detected. Correcting timezone:', {
+        stored: data.today.date,
+        actual: today,
+        minutes: data.today.totalMinutes
+      });
+
+      data.today.date = today;
+      await chrome.storage.local.set({ today: data.today });
+      return;
+    }
+
+    // Normal day rollover: save yesterday's data to history
     if (data.today.totalMinutes > 0) {
       // Check if an entry for this date already exists
       const existingIndex = data.history.findIndex(h => h.date === data.today.date);
