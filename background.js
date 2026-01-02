@@ -116,8 +116,9 @@ async function trackActiveTab() {
     let shouldTrack = !isIdle;
     if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com')) {
       const isVideoPlaying = videoPlayingState.get(tab.id);
-      shouldTrack = !isIdle && isVideoPlaying === true;
-      console.log(`YouTube check - idle: ${isIdle}, video playing: ${isVideoPlaying}, should track: ${shouldTrack}`);
+      // Only track if video is playing (true). If undefined/unknown, wait for content script
+      shouldTrack = !isIdle && (isVideoPlaying === true);
+      console.log(`YouTube check - tabId: ${tab.id}, idle: ${isIdle}, video playing: ${isVideoPlaying}, should track: ${shouldTrack}`);
     }
 
     if (!isTracked || !shouldTrack) {
@@ -135,13 +136,12 @@ async function trackActiveTab() {
     lastTrackedUrl = hostname;
     lastActiveTime = Date.now(); // Update last active time
 
-    // Update badge every second with accumulated time (only active time, not idle)
+    // Update badge with saved time + current session time (real-time)
     const data2 = await chrome.storage.local.get(['today']);
-    const totalMinutes = data2.today?.totalMinutes || 0;
+    const savedMinutes = data2.today?.totalMinutes || 0;
+    const currentSessionSeconds = Math.floor((lastActiveTime - currentSessionStart) / 1000);
+    const totalMinutes = savedMinutes + Math.floor(currentSessionSeconds / 60);
 
-    // Only count time since last flush (current session)
-    // We don't add current seconds to avoid counting idle time
-    // The badge shows saved time, and updates every minute when we save
     updateBadge(totalMinutes);
 
   } catch (error) {
