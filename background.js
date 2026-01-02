@@ -6,6 +6,10 @@ let lastActiveTime = Date.now();
 let lastTrackedUrl = null;
 let accumulatedSeconds = 0;
 
+// Track video playback state by tab ID
+// Map: tabId -> boolean (is video playing)
+let videoPlayingState = new Map();
+
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('TimeTapestry installed');
@@ -55,6 +59,11 @@ async function startTracking() {
   // Listen for tab changes
   chrome.tabs.onActivated.addListener(handleTabChange);
   chrome.windows.onFocusChanged.addListener(handleWindowFocus);
+
+  // Clean up video state when tabs are removed
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    videoPlayingState.delete(tabId);
+  });
 }
 
 // Handle tab activation changes
@@ -103,7 +112,15 @@ async function trackActiveTab() {
     const idleState = await chrome.idle.queryState(60); // 60 seconds threshold
     const isIdle = idleState === 'idle' || idleState === 'locked';
 
-    if (!isTracked || isIdle) {
+    // For YouTube, check if video is actually playing
+    let shouldTrack = !isIdle;
+    if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com')) {
+      const isVideoPlaying = videoPlayingState.get(tab.id);
+      shouldTrack = !isIdle && isVideoPlaying === true;
+      console.log(`YouTube check - idle: ${isIdle}, video playing: ${isVideoPlaying}, should track: ${shouldTrack}`);
+    }
+
+    if (!isTracked || !shouldTrack) {
       await flushAccumulatedTime();
       lastTrackedUrl = null;
       return;
@@ -291,10 +308,16 @@ function getDateString(date) {
   return `${year}-${month}-${day}`;
 }
 
-// Listen for messages from popup
+// Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateBadge') {
     updateBadgeFromStorage();
+    sendResponse({ success: true });
+  } else if (request.type === 'videoStateChange' && sender.tab) {
+    // Update video playing state for this tab
+    const tabId = sender.tab.id;
+    videoPlayingState.set(tabId, request.isPlaying);
+    console.log(`Video state changed for tab ${tabId}: ${request.isPlaying ? 'playing' : 'paused'}`);
     sendResponse({ success: true });
   }
   return true;
